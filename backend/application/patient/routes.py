@@ -90,18 +90,19 @@ def book_slot(slot_id):
 @role_required('patient')
 def patient_history():
     user_id = get_jwt_identity()
-    name = User.query.filter_by(id =user_id).first().name
     appointments = Appointment.query.filter_by(patient_id =user_id).all()
     if not appointments:
-        return jsonify({"message":"No appointment was booked"}),200
+        return jsonify({"message":"No appointments found"}),200
     treatment =[]
     for appoint in appointments:
-        treatment.append({
-            "name":name,
-            "test_result": appoint.treatment.test_results,
-            "medicine": appoint.treatment.medicine,
-            "diagnosis" : appoint.treatment.diagnosis,
-            "doctor_name":appoint.doctor.user.name
+        treat = Treatment.query.filter_by(appointment_id=appoint.id).first()
+        if treat:
+            treatment.append({
+                "treatment_id":treat.id,
+                "test_result": treat.test_results,
+                "medicine": treat.medicine,
+                "diagnosis" : treat.diagnosis,
+                "doctor_name":appoint.doctor.user.name
 
         })
     return jsonify(treatment),200
