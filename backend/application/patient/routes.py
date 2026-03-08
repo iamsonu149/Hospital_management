@@ -9,18 +9,31 @@ from datetime import datetime
 
 
 
-@patient_bp.route('update_profile',methods =['POST'])
+@patient_bp.route('/update_profile',methods =['PATCH'])
 @role_required('patient')
 def update_profile():
     user_id = get_jwt_identity()
     user = User.query.filter_by(id =user_id).first()
+    if not user:
+        return jsonify({"message":"User not found"}),404
+
     data =request.get_json()
     name =data.get('name')
     email =data.get('email')
-    password =generate_password_hash(data.get('password'))
-    user.name =name
-    user.passoword =password
-    user.email =email
+
+    if name:
+        user.name =name
+
+    if email and email != user.email:
+        existing = User.query.filter_by(email=email).first()
+        if existing:
+            return jsonify({"message":"Email already exists"}),409
+        user.email =email
+
+    password = data.get('password')
+    if password:
+        user.password =generate_password_hash(password)
+
     db.session.commit()
     return jsonify({"message":"Your profile was updated"}),200
 
@@ -35,6 +48,19 @@ def specialization():
         if s.doctors:
             result.append({"name":s.name,"id":s.id,"description":s.description},)
     return jsonify(result),200
+
+
+@patient_bp.route('/profile', methods=['GET'])
+@role_required('patient')
+def profile():
+    user_id = get_jwt_identity()
+    user = User.query.filter_by(id=user_id).first()
+    if not user:
+        return jsonify({"message":"User not found"}),404
+    return jsonify({
+        "name": user.name,
+        "email": user.email
+    }),200
 
 @patient_bp.route('/<int:specialization_id>/doctors')
 @role_required('patient')
@@ -116,6 +142,7 @@ def appointments():
     info =[]
     for appoint in appoints:
         info.append({
+            "id":appoint.id,
             "patient_id":appoint.patient_id,
             "doctor_id":appoint.doctor_id,
             "start_time":appoint.start_time.isoformat(),
@@ -125,7 +152,7 @@ def appointments():
         })
     return jsonify(info),200
 
-@patient_bp.route('<int:appoint_id>/cancel_appointment',methods =['PATCH'])
+@patient_bp.route('/<int:appoint_id>/cancel_appointment',methods =['PATCH'])
 @role_required('patient')
 def cancel_appointment(appoint_id):
     appointment = Appointment.query.filter_by(id = appoint_id).first()
