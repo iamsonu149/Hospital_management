@@ -61,7 +61,7 @@ export default{
                 }
                     
                 } catch (error){
-                    this.error = error.response.data.message || "login failed";
+                    this.error = error?.response?.data?.message || error?.message || "login failed";
                 }
             }
         }

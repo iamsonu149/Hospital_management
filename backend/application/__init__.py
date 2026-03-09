@@ -8,7 +8,12 @@ from application.initializers import create_default_admin
 def create_app():
     app = Flask(__name__)
     app.config.from_object(LocalDevelopmentConfig)
-    CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
+    # In WSL/browser setups, frontend may be opened via localhost or 127.0.0.1.
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+    CORS(app, resources={r"/*": {"origins": allowed_origins}})
 
     db.init_app(app)
     jwt.init_app(app)

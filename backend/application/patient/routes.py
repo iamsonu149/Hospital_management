@@ -1,11 +1,13 @@
-from flask import request,jsonify
+import os
+from flask import request,jsonify,send_from_directory,current_app
 from application.utils.decorators import role_required
 from application.model import User,Doctor,Specialization,Appointment,Treatment,DoctorAvailability
 from . import patient_bp
 from werkzeug.security import generate_password_hash
 from flask_jwt_extended import jwt_required,get_jwt_identity
 from application.database import db
-from datetime import datetime
+from celery.result import AsyncResult
+from ..tasks import csv_report
 
 
 
@@ -161,6 +163,39 @@ def cancel_appointment(appoint_id):
     return jsonify({"message":"Appointment was cancelled"}),200
 
 
+@patient_bp.route('/download_report', methods=['POST'])
+@role_required('patient')
+def download_report():
+    user_id = get_jwt_identity()
+    task = csv_report.delay(user_id)
+    return jsonify({"message": "CSV export started","task_id": task.id}), 202
 
-   
 
+@patient_bp.route('/download_report/status/<string:task_id>', methods=['GET'])
+@role_required('patient')
+def download_report_status(task_id):
+    result = AsyncResult(task_id)
+
+    if result.state == 'PENDING':
+        return jsonify({"state": "PENDING", "message": "Task is queued"}), 200
+
+    if result.state == 'FAILURE':
+        return jsonify({"state": "FAILURE", "message": str(result.info)}), 500
+
+    if result.state == 'SUCCESS':
+        return jsonify({"state": "SUCCESS", "result": result.result}), 200
+
+    return jsonify({"state": result.state}), 200
+
+
+@patient_bp.route('/download_report/file/<string:file_name>', methods=['GET'])
+@role_required('patient')
+def download_report_file(file_name):
+    base_dir = os.path.abspath(os.path.join(current_app.root_path, ".."))
+    export_dir = os.path.join(base_dir, "static", "exports")
+    file_path = os.path.join(export_dir, file_name)
+
+    if not os.path.exists(file_path):
+        return jsonify({"message": "File not found"}), 404
+
+    return send_from_directory(export_dir, file_name, as_attachment=True)
