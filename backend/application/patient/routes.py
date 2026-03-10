@@ -67,8 +67,24 @@ def profile():
 @patient_bp.route('/<int:specialization_id>/doctors')
 @role_required('patient')
 def doctors(specialization_id):
-    specialization = Specialization.query.filter_by(id= specialization_id).first()
-    doctors = specialization.doctors
+    specialization = Specialization.query.filter_by(id=specialization_id).first()
+    if not specialization:
+        return jsonify({"message": "Specialization not found"}), 404
+
+    search = request.args.get("search", "").strip()
+
+    query = (
+        db.session.query(Doctor)
+        .join(User, Doctor.user_id == User.id)
+        .join(Specialization, Doctor.specialization_id == Specialization.id)
+        .filter(Doctor.specialization_id == specialization_id)
+    )
+
+    if search:
+        like = f"%{search}%"
+        query = query.filter(User.name.ilike(like))
+
+    doctors = query.all()
     doctors_list = []
     for doctor in doctors:
         doctors_list.append({"doctor_id":doctor.id,"specialization":specialization.name,

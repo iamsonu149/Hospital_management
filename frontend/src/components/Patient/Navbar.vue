@@ -17,8 +17,14 @@
                         <button class="btn btn-danger" @click="logout">Logout</button>
                     </li>
                 </ul>
-                <form class="d-flex">
-                    <input class="form-control" type="text" placeholder="Search">
+                <form class="d-flex" @submit.prevent="run_search">
+                    <input
+                        class="form-control"
+                        type="text"
+                        placeholder="Search"
+                        :value="local_search_query"
+                        @input="update_search_query($event.target.value)"
+                    >
                     <button class="btn btn-success ms-2" type="submit">Search</button>
                 </form>
             </div>
@@ -64,17 +70,31 @@ import axios from "axios";
 
 export default {
     props: {
-        name: { type: String, default: "" }
+        name: { type: String, default: "" },
+        search_query: { type: String, default: "" }
     },
-    emits: ["profile-updated"],
+    emits: ["profile-updated", "update:search_query", "run-search"],
     data() {
         return {
             show_profile_edit: false,
             profile_form: {name: this.name , email: "",password: ""},
-            profile_error: ""
+            profile_error: "",
+            local_search_query: this.search_query
+        }
+    },
+    watch: {
+        search_query(new_value) {
+            this.local_search_query = new_value || "";
         }
     },
     methods: {
+        update_search_query(value) {
+            this.local_search_query = value;
+            this.$emit("update:search_query", value);
+        },
+        run_search() {
+            this.$emit("run-search", this.local_search_query);
+        },
         authHeaders() {
             const token = localStorage.getItem("token");
             return { Authorization: `Bearer ${token}` };

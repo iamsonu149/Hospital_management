@@ -1,6 +1,9 @@
 <template>
     <Navbar
     :name="name"
+    :search_query="search_query_input"
+    @update:search_query="search_query_input = $event"
+    @run-search="run_search"
     />
     <div class="container-fluid" style="margin-top:90px;">
         <div v-if="doctor_error" class="alert alert-danger">{{ doctor_error }}</div>
@@ -15,6 +18,9 @@
                 </tr>
             </thead>
                 <tbody>
+                    <tr v-if="doctors.length === 0">
+                        <td colspan="5" class="text-center">No doctor found</td>
+                    </tr>
                     <tr v-for="doctor in doctors" :key="doctor.doctor_id">
                         <td>{{ doctor.doctor_id }}</td>
                         <td>{{ doctor.name }}</td>
@@ -124,7 +130,8 @@ export default{
         selected_slot:null,
         booking_success:"",
         selected_doctor:null,
-        show_detail:false
+        show_detail:false,
+        search_query_input:""
     };
 
         },
@@ -132,15 +139,22 @@ export default{
     this.fetch_doctors()
    },
    methods:{
+    run_search(query){
+        this.fetch_doctors(query || this.search_query_input);
+    },
        authHeaders(){
            const token=localStorage.getItem('token');
            return {Authorization:`Bearer ${token}`};
        },
-    async fetch_doctors(){
+    async fetch_doctors(search = ""){
         try{
             const dept_id = this.$route.params.department_id
+            const params = {};
+            if ((search || "").trim()) {
+                params.search = search.trim();
+            }
             const response =await axios.get(`${this.base_api}/${dept_id}/doctors`,
-                {headers: this.authHeaders()}
+                {headers: this.authHeaders(), params}
             )
             this.doctors =Array.isArray(response.data) ? response.data :[]
             
