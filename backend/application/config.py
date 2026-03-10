@@ -1,6 +1,8 @@
 class Config():
     DEBUG =False
     SQLALCHEMY_TRACK_MODIFICATIONS =False
+    CACHE_TYPE = "SimpleCache"
+    CACHE_DEFAULT_TIMEOUT = 60
 
 class LocalDevelopmentConfig(Config):
     DEBUG =True

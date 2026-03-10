@@ -4,6 +4,7 @@ from flask_jwt_extended import jwt_required
 from werkzeug.security import generate_password_hash
 from application.model import User,Doctor,Specialization,Appointment,Treatment,DoctorAvailability
 from application.database import db
+from application.cache import cache
 from . import admin_bp
 from datetime import datetime
 
@@ -65,6 +66,7 @@ def add_doctor():
                    specialization_id=specialization.id)
     db.session.add(doctor)
     db.session.commit()
+    cache.delete("admin:registered_doctors")
     return jsonify({"message":"Doctor was added successfully"}),201
 
 
@@ -99,6 +101,7 @@ def edit_doctor(user_id):
             return jsonify({"message":"Specialization does not exist"})
         user.doctor_profile.specialization_id =specialization.id
     db.session.commit()
+    cache.delete("admin:registered_doctors")
     return jsonify({"message":"Doctor updated successfully"})
 
 
@@ -165,6 +168,8 @@ def block_user(user_id):
         return jsonify({'message':'User not found'}),404
     user.status ='blocked'
     db.session.commit()
+    cache.delete("admin:registered_doctors")
+    cache.delete("admin:registered_patients")
     return jsonify({'message':"User was blocked successfully"}),200
 
 
@@ -177,6 +182,8 @@ def unblock_user(user_id):
         return jsonify({"message":"User not found"}),404
     user.status="active"
     db.session.commit()
+    cache.delete("admin:registered_doctors")
+    cache.delete("admin:registered_patients")
     return jsonify({"message":"User was unblocked successfully"}),200
 
 
@@ -188,12 +195,19 @@ def delete_user(user_id):
         return jsonify({"message":"User does not exist"}),404
     db.session.delete(user)
     db.session.commit()
+    cache.delete("admin:registered_doctors")
+    cache.delete("admin:registered_patients")
     return jsonify({"message":"User deleted successfully"}),200
 
 
 @admin_bp.route('/registered_doctors')
 @role_required('admin')
 def registered_doctors():
+    cache_key = "admin:registered_doctors"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return jsonify(cached), 200
+
     doctors = User.query.filter_by(role='doctor').all()
     if not doctors:
         return jsonify({'No doctor is present right now'}),200
@@ -207,12 +221,18 @@ def registered_doctors():
         "specialization_name": doctor.doctor_profile.specialization.name,
         "status":doctor.status
         })
+    cache.set(cache_key, doctor_list, timeout=60)
     return jsonify(doctor_list),200
 
 
 @admin_bp.route('/registered_patients')
 @role_required('admin')
 def registered_patient():
+    cache_key = "admin:registered_patients"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return jsonify(cached), 200
+
     patients_list =[]
     patients =User.query.filter_by(role='patient')
     for patient in patients:
@@ -223,6 +243,7 @@ def registered_patient():
             "status":patient.status
 
         })
+    cache.set(cache_key, patients_list, timeout=60)
     return jsonify(patients_list),200
 
 
@@ -249,6 +270,7 @@ def edit_patient(user_id):
     if password:
         user.password =generate_password_hash(password)
     db.session.commit()
+    cache.delete("admin:registered_patients")
     return jsonify({"message":"User was edited successfully"})
 
 
@@ -264,6 +286,11 @@ def statistics():
 @admin_bp.route('/all_appointments')
 @role_required('admin')
 def appointments():
+    cache_key = "admin:all_appointments"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return jsonify(cached), 200
+
     appoints = Appointment.query.all()
     lists = []
     for appoint in appoints:
@@ -277,6 +304,7 @@ def appointments():
             "status":appoint.status
 
         })
+    cache.set(cache_key, lists, timeout=20)
     return jsonify(lists),200
 
 @admin_bp.route('/<int:appoint_id>/cancel_appointment',methods =['PATCH'])
@@ -285,6 +313,7 @@ def cancel_appointment(appoint_id):
     appointment = Appointment.query.filter_by(id = appoint_id).first()
     appointment.status ="cancelled"
     db.session.commit()
+    cache.delete("admin:all_appointments")
     return jsonify({"message":"Appointment was cancelled"}),200
 
 
@@ -304,8 +333,6 @@ def cancel_appointment(appoint_id):
 
 
         
-
-
 
 
 

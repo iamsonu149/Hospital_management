@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_cors import CORS
 from application.config import LocalDevelopmentConfig
+from application.cache import cache
 from application.database import db
 from application.security import jwt
 from application.initializers import create_default_admin
@@ -17,6 +18,7 @@ def create_app():
 
     db.init_app(app)
     jwt.init_app(app)
+    cache.init_app(app)
 
     with app.app_context():
         db.create_all()
