@@ -1,13 +1,14 @@
 from celery import shared_task
 import csv
-import datetime
 import os
 from flask import current_app
-from application.model import Appointment, User, Doctor
+from application.model import Appointment, User, Doctor,DoctorAvailability
 from jinja2 import Template
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from application.mail import send_email
 import requests
+from sqlalchemy import or_, and_
+from application.database import db
 
 @shared_task(ignore_result=False, name="download_csv_report")
 def csv_report(user_id):
@@ -21,7 +22,7 @@ def csv_report(user_id):
     base_dir = os.path.abspath(os.path.join(current_app.root_path, ".."))
     export_dir = os.path.join(base_dir, "static", "exports")
     os.makedirs(export_dir, exist_ok=True)
-    file_name = f"treatment_{user_id}_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
+    file_name = f"treatment_{user_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
     file_path = os.path.join(export_dir, file_name)
 
     with open(file_path, "w", newline="", encoding="utf-8") as f:
@@ -145,3 +146,33 @@ def daily_reminder():
         requests.post(WEBHOOK_URL, json={"text": text})
 
     return f"Reminders sent for {len(appointments)} appointments"
+
+
+
+
+@shared_task(ignore_result=False, name="expire_past_appointments")
+def expire_past_appointments():
+    now = datetime.now()
+    today = now.date()
+    current_time = now.time()
+
+    appts = Appointment.query.filter(Appointment.status == "booked",
+        or_( Appointment.date < today,
+            and_(Appointment.date == today, Appointment.end_time < current_time),
+    ),
+    ).all()
+
+    for appt in appts:
+        appt.status = "cancelled"
+
+    past_open_slots = DoctorAvailability.query.filter( DoctorAvailability.is_booked == False,
+        or_(
+            DoctorAvailability.date < today,
+            and_(DoctorAvailability.date == today, DoctorAvailability.end_time < current_time),
+        ),
+    ).all()
+
+    for slot in past_open_slots:
+        slot.is_booked = True
+
+    db.session.commit()

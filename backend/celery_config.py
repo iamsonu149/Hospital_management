@@ -8,11 +8,16 @@ from celery.schedules import crontab
 beat_schedule = {
     "daily-appointment-reminder": {
         "task": "daily_appointment_reminder",
-        "schedule": crontab(),
+        "schedule": crontab(hour=8, minute=0),
     },
     "monthly-activity-report": {
     "task": "monthly_activity_report",
     "schedule": crontab(day_of_month=1, hour=7, minute=0),
     },
+    "expire-past-appointments": {
+    "task": "expire_past_appointments",
+    "schedule": crontab(minute="*/30"),
+    },
+
 
 }
