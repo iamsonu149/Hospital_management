@@ -17,7 +17,7 @@
                         <button class="btn btn-danger" @click="logout">Logout</button>
                     </li>
                 </ul>
-                <form class="d-flex" @submit.prevent="run_search">
+                <form v-if="showSearch" class="d-flex" @submit.prevent="run_search">
                     <input
                         class="form-control"
                         type="text"
@@ -85,6 +85,11 @@ export default {
     watch: {
         search_query(new_value) {
             this.local_search_query = new_value || "";
+        }
+    },
+    computed: {
+        showSearch() {
+            return this.$route.path.includes("/doctors");
         }
     },
     methods: {
