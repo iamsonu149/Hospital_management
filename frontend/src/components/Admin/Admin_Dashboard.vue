@@ -13,7 +13,7 @@
     <StatsCards :stats="stats" />
 
     <Doctors
-      :doctors="filtered_doctors"
+      :doctors="doctors"
       :specializations="specialization_name"
       :error="doctor_error"
       :editForm="editForm"
@@ -27,7 +27,7 @@
   </div>
 
   <Patients
-    :patients="filtered_patients"
+    :patients="patients"
     :error ="patient_error"
     :show_patient_edit="show_patient_edit"
     :patient_form="patient_form"
@@ -76,26 +76,12 @@ export default {
       appointment_error:"",
       search_query_input:"",
       search_target_input:"doctor",
-      search_query_applied:"",
-      search_target_applied:"doctor",
       stats: {
         doctors: 0,
         patients: 0,
         appointments: 0
       }
     };
-  },
-  computed:{
-    filtered_doctors(){
-      const q = this.search_query_applied.trim().toLowerCase();
-      if (!q || this.search_target_applied !== "doctor") return this.doctors;
-      return this.doctors.filter((d) => (d.name || "").trim().toLowerCase() === q);
-    },
-    filtered_patients(){
-      const q = this.search_query_applied.trim().toLowerCase();
-      if (!q || this.search_target_applied !== "patient") return this.patients;
-      return this.patients.filter((p) => (p.name || "").trim().toLowerCase() === q);
-    }
   },
   mounted() {
     this.fetchDoctors();
@@ -106,8 +92,14 @@ export default {
   },
   methods: {
     run_search(){
-      this.search_query_applied = this.search_query_input;
-      this.search_target_applied = this.search_target_input;
+      const q = this.search_query_input.trim();
+      if (this.search_target_input === "doctor") {
+        this.fetchDoctors(q);
+        this.fetch_patients("");
+      } else {
+        this.fetch_patients(q);
+        this.fetchDoctors("");
+      }
     },
     authHeaders() {
       const token = localStorage.getItem("token");
@@ -127,11 +119,16 @@ export default {
         this.stats = { doctors: 0, patients: 0, appointments: 0 };
       }
     },
-    async fetchDoctors() {
+    async fetchDoctors(search = "") {
       try {
         this.doctor_error = "";
+        const params = {};
+        if (search) {
+          params.search = search;
+        }
         const response = await axios.get(`${this.base_api}/registered_doctors`, {
           headers: this.authHeaders(),
+          params,
         });
         this.doctors = Array.isArray(response.data) ? response.data : [];
       } catch (err) {
@@ -202,11 +199,16 @@ export default {
         this.doctor_error = err?.response?.data?.message || "Failed to update status.";
       }
     },
-    async fetch_patients(){
+    async fetch_patients(search = ""){
       try{
       this.patient_error="";
+      const params = {};
+      if (search) {
+        params.search = search;
+      }
       const response = await axios.get(`${this.base_api}/registered_patients` ,{
-        headers: this.authHeaders()
+        headers: this.authHeaders(),
+        params
       });
       this.patients = Array.isArray(response.data) ? response.data : [];
       }catch(err){

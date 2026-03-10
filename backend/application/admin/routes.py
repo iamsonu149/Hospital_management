@@ -203,12 +203,17 @@ def delete_user(user_id):
 @admin_bp.route('/registered_doctors')
 @role_required('admin')
 def registered_doctors():
-    cache_key = "admin:registered_doctors"
-    cached = cache.get(cache_key)
-    if cached is not None:
-        return jsonify(cached), 200
+    search = request.args.get("search", "").strip()
+    if not search:
+        cache_key = "admin:registered_doctors"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return jsonify(cached), 200
 
-    doctors = User.query.filter_by(role='doctor').all()
+    doctors_query = User.query.filter_by(role='doctor')
+    if search:
+        doctors_query = doctors_query.filter(User.name.ilike(f"%{search}%"))
+    doctors = doctors_query.all()
     if not doctors:
         return jsonify({'No doctor is present right now'}),200
     doctor_list =[]
@@ -221,20 +226,25 @@ def registered_doctors():
         "specialization_name": doctor.doctor_profile.specialization.name,
         "status":doctor.status
         })
-    cache.set(cache_key, doctor_list, timeout=60)
+    if not search:
+        cache.set(cache_key, doctor_list, timeout=60)
     return jsonify(doctor_list),200
 
 
 @admin_bp.route('/registered_patients')
 @role_required('admin')
 def registered_patient():
-    cache_key = "admin:registered_patients"
-    cached = cache.get(cache_key)
-    if cached is not None:
-        return jsonify(cached), 200
+    search = request.args.get("search", "").strip()
+    if not search:
+        cache_key = "admin:registered_patients"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return jsonify(cached), 200
 
     patients_list =[]
-    patients =User.query.filter_by(role='patient')
+    patients = User.query.filter_by(role='patient')
+    if search:
+        patients = patients.filter(User.name.ilike(f"%{search}%"))
     for patient in patients:
         patients_list.append({
             "name": patient.name,
@@ -243,7 +253,8 @@ def registered_patient():
             "status":patient.status
 
         })
-    cache.set(cache_key, patients_list, timeout=60)
+    if not search:
+        cache.set(cache_key, patients_list, timeout=60)
     return jsonify(patients_list),200
 
 
@@ -333,7 +344,6 @@ def cancel_appointment(appoint_id):
 
 
         
-
 
 
 
