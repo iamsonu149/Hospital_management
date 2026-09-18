@@ -10,6 +10,7 @@ class User(db.Model):
 
 
 class Doctor(db.Model):
+    __table_args__ = (db.Index('ix_doctor_specialization', 'specialization_id'),)
     id = db.Column(db.Integer,primary_key=True)
     user_id =db.Column(db.Integer,db.ForeignKey('user.id'),nullable=False,unique=True)
     specialization_id =db.Column(db.Integer,db.ForeignKey('specialization.id'),nullable=False)
@@ -29,6 +30,10 @@ class Specialization(db.Model):
 
 
 class Appointment(db.Model):
+    __table_args__ = (
+        db.Index('ix_appointment_patient_date', 'patient_id', 'date'),
+        db.Index('ix_appointment_doctor_status_date', 'doctor_id', 'status', 'date'),
+    )
     id = db.Column(db.Integer,primary_key=True)
     availability_id = db.Column(db.Integer,db.ForeignKey('doctor_availability.id'),nullable=False,unique=True)
     patient_id =db.Column(db.Integer,db.ForeignKey('user.id'),nullable=False)
@@ -45,6 +50,7 @@ class Appointment(db.Model):
 
 
 class Treatment(db.Model):
+    __table_args__ = (db.Index('ix_treatment_appointment', 'appointment_id'),)
     id = db.Column(db.Integer, primary_key=True)
     appointment_id= db.Column(db.Integer, db.ForeignKey('appointment.id',ondelete='CASCADE'),nullable=False)
     diagnosis= db.Column(db.String(200), nullable=False)
@@ -54,6 +60,9 @@ class Treatment(db.Model):
 
 
 class DoctorAvailability(db.Model):
+    __table_args__ = (
+        db.Index('ix_availability_doctor_date', 'doctor_id', 'date'),
+    )
     id =db.Column(db.Integer, primary_key=True)
     doctor_id = db.Column(db.Integer, db.ForeignKey('doctor.id'), nullable=False)
     date= db.Column(db.Date, nullable=False)
@@ -61,6 +70,4 @@ class DoctorAvailability(db.Model):
     end_time = db.Column(db.Time, nullable=False)
     is_booked= db.Column(db.Boolean, default=False)
     doctor = db.relationship('Doctor',backref=db.backref('availabilities', cascade='all, delete-orphan'))
-
-
 
